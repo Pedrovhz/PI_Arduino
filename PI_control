@@ -1,0 +1,99 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// PI Controle Variables
+double erroAtual,
+       kP = 100, kI = 50,
+       P, I,
+       Pi,
+       t;
+float  deltaT;
+
+// Hardware Variables
+const int pSENSOR = A0,
+          pBtMais = A1,
+          pBtMenos = A2,
+          pCONTROLE = 3;
+double stPoint = 20;
+int btMais = 0,
+    btMenos = 0;
+
+// Create an 16x2 LCD in 0,20 address
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(pSENSOR, INPUT),
+         (pBtMais, INPUT),
+         (pBtMenos, INPUT),
+         (pCONTROLE, OUTPUT);
+
+// Initialize the LCD
+  lcd.init();
+  lcd.backlight();
+
+}
+
+void loop() {
+
+  //Butons
+  btMais = analogRead(pBtMais);
+  if (btMais == LOW) {
+    stPoint += 1;
+  }
+  btMenos = analogRead(pBtMenos);
+  if (btMenos == LOW) {
+    stPoint -= 1;
+  }
+
+// Read temperature
+  double temperatura = (float(analogRead(pSENSOR)) * 5 / (1023)) / 0.01;
+
+  lcd.print("Temp = ");
+  lcd.print(temperatura);
+  lcd.print(" C");
+  lcd.home();
+  lcd.setCursor(14, 0);
+  lcd.setCursor(0, 1);
+  lcd.print("SetP= ");
+  lcd.print(stPoint);
+  lcd.print(" C");
+  delay(500);
+  lcd.clear(); //Clean the LCD
+
+//PI Control
+  erroAtual = stPoint - temperatura;
+  deltaT = (millis() - t) / 1000.0;
+  t = millis();
+  Pi = (P + I);
+
+//Proporcional control
+  P = (kP * erroAtual);
+
+//Integral Control
+  I = I +((kI * erroAtual) * deltaT) / 2;
+
+//Conversion and retriction of PI, P and I values
+  P = constrain(P, -1200, 1200);
+  I = constrain(I, -1200, 1200);
+  Pi = constrain(Pi, -1023, 1023);
+
+  int ctrlPi;
+  ctrlPi = map(Pi, -1023, 1023, 255, 0);
+
+//CPI Controler
+  analogWrite (pCONTROLE, ctrlPi);
+
+//Serial Monitor
+
+  Serial.print("erroAtual: "); Serial.println(erroAtual);
+  Serial.print("deltaT: ");Serial.println(deltaT);
+  Serial.print("P: ");Serial.println(P);
+  Serial.print("I: ");Serial.println(I);
+  Serial.print("Pi: ");Serial.println(Pi);
+  Serial.print("CtrlPi: ");Serial.println(ctrlPi);
+  Serial.println(" ");
+
+}
